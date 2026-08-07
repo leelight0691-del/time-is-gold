@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>24시 원형 생활계획표</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    // 1. Generate App Icon dynamically
+    function generateAppIcon() {
+      const c = document.createElement('canvas');
+      c.width = 192; c.height = 192;
+      const x = c.getContext('2d');
+      x.fillStyle = '#3B7A57';
+      x.beginPath(); x.arc(96, 96, 96, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#FFFFFF';
+      x.beginPath(); x.arc(96, 96, 75, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#F4D03F';
+      x.beginPath(); x.moveTo(96,96); x.arc(96, 96, 75, -Math.PI/2, 0); x.closePath(); x.fill();
+      x.strokeStyle = '#3B7A57'; x.lineWidth = 8;
+      x.beginPath(); x.moveTo(96, 96); x.lineTo(96, 45); x.stroke();
+      x.beginPath(); x.moveTo(96, 96); x.lineTo(135, 96); x.stroke();
+      return c.toDataURL('image/png');
+    }
+
+    const iconDataUrl = generateAppIcon();
+
+    // 2. Inject Dynamic Web Manifest
+    const manifest = {
+      name: "24시 원형 생활계획표",
+      short_name: "생활계획표",
+      start_url: "./",
+      display: "standalone",
+      background_color: "#F5F9F0",
+      theme_color: "#3B7A57",
+      icons: [{ src: iconDataUrl, sizes: "192x192", type: "image/png" }]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    const manifestUrl = URL.createObjectURL(manifestBlob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = manifestUrl;
+    document.head.appendChild(link);
+
+    // 3. Register Inline Service Worker for Offline/PWA
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        self.addEventListener('install', e => self.skipWaiting());
+        self.addEventListener('activate', e => self.clients.claim());
+        self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));
+      `;
+      const swBlob = new Blob([swCode], {type: 'text/javascript'});
+      const swUrl = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swUrl).catch(()=>{});
+    }
+  </script>
+
+  <style>
+    @font-face {
+      font-family: 'GmarketSansBold';
+      src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    :root {
+      --bg-cream: #F5F9F0;
+      --card-bg: #FFFFFF;
+      --primary-green: #3B7A57;
+      --light-green: #E2EFE0;
+      --accent-yellow: #F4D03F;
+      --soft-yellow: #FEF9E7;
+      --btn-green: #40826D;
+      --btn-reset: #FADBD8;
+      --reset-text: #B03A2E;
+      --text-dark: #2C3E50;
+      --text-muted: #7F8C8D;
+      --border-color: #E5E8E8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'GmarketSansBold', 'Gowun Dodum', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-cream);
+      color: var(--text-dark);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    .app-wrapper {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card-bg);
+      border-radius: 28px;
+      box-shadow: 0 10px 30px rgba(60, 90, 60, 0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #E2EAD8;
+      margin-bottom: 20px;
+    }
+
+    /* 탭 헤더 */
+    .tab-header {
+      display: flex;
+      background: #EDF4EA;
+      padding: 6px;
+      margin: 12px 12px 0 12px;
+      border-radius: 20px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      border: none;
+      background: transparent;
+      font-size: 0.95rem;
+      color: var(--primary-green);
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: var(--primary-green);
+      font-weight: bold;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 16px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* 날짜 컨트롤 바 */
+    .date-nav-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card-bg);
+      padding: 8px 12px;
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      margin-bottom: 15px;
+      border: 1px solid #EEF3E9;
+    }
+
+    .nav-arrow {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--accent-yellow);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #7D6608;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    .nav-arrow:active {
+      transform: scale(0.92);
+    }
+
+    .date-display {
+      text-align: center;
+    }
+
+    .date-title {
+      font-size: 1.05rem;
+      color: var(--primary-green);
+      letter-spacing: -0.3px;
+    }
+
+    .date-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .btn-action-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-today {
+      background: var(--btn-green);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 14px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .btn-reset {
+      background: var(--btn-reset);
+      color: var(--reset-text);
+      border: none;
+      padding: 6px 10px;
+      border-radius: 14px;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
+    /* 캔버스 / 시계 영역 */
+    .clock-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      max-width: 360px;
+      margin: 0 auto 15px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #clockCanvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 일정 추가 폼 */
+    .add-form-card {
+      background: #F8FAF6;
+      border: 1px solid #E1EBE0;
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 15px;
+    }
+
+    .form-title {
+      font-size: 0.9rem;
+      color: var(--primary-green);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .time-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .time-select-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: white;
+      border: 1px solid #D5E1D3;
+      padding: 4px 8px;
+      border-radius: 10px;
+    }
+
+    .time-select-group select {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 0.88rem;
+      color: var(--text-dark);
+      cursor: pointer;
+    }
+
+    .task-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .task-input-row input {
+      flex: 1;
+      border: 1px solid #D5E1D3;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .task-input-row input:focus {
+      border-color: var(--btn-green);
+    }
+
+    .btn-submit {
+      background: var(--btn-green);
+      color: white;
+      border: none;
+      padding: 0 16px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* 할 일 리스트 */
+    .todo-section-title {
+      font-size: 0.95rem;
+      color: var(--primary-green);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .todo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FAFCFA;
+      border: 1px solid #E6EFE4;
+      padding: 10px 12px;
+      border-radius: 14px;
+      transition: background 0.2s;
+    }
+
+    .todo-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .todo-checkbox {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--btn-green);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .todo-badge {
+      background: #FEF3C7;
+      color: #92400E;
+      font-size: 0.75rem;
+      padding: 3px 7px;
+      border-radius: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .todo-text {
+      font-size: 0.88rem;
+      color: var(--text-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .todo-text.completed {
+      text-decoration: line-through;
+      color: #A0AEC0;
+    }
+
+    .btn-icon-delete {
+      background: none;
+      border: none;
+      color: #E53E3E;
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+
+    .btn-icon-delete:hover {
+      opacity: 1;
+    }
+
+    /* 통계 대시보드 */
+    .dashboard-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .stat-card-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: #F4F9F2;
+      border: 1px solid #E0ECE0;
+      border-radius: 16px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat-card.yellow {
+      background: #FEFBF0;
+      border-color: #F9EBE0;
+    }
+
+    .stat-title {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .stat-val {
+      font-size: 1.6rem;
+      color: var(--primary-green);
+      margin: 6px 0;
+    }
+
+    .stat-card.yellow .stat-val {
+      color: #D97706;
+    }
+
+    .chart-box {
+      background: white;
+      border: 1px solid #E6EFE4;
+      border-radius: 16px;
+      padding: 12px;
+      height: 200px;
+      position: relative;
+    }
+
+    .reflection-box {
+      background: #FAFCF9;
+      border: 1px dashed var(--btn-green);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .reflection-title {
+      font-size: 0.9rem;
+      color: var(--primary-green);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .reflection-list {
+      font-size: 0.82rem;
+      color: #4A5568;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .reflection-item {
+      background: white;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #EDF2F7;
+    }
+
+    .badge-warn {
+      background: #FEE2E2;
+      color: #C53030;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-wrapper">
+    <div class="tab-header">
+      <button class="tab-btn active" onclick="switchTab('planner')">
+        <i class="fa-solid fa-clock"></i> 생활계획표
+      </button>
+      <button class="tab-btn" onclick="switchTab('dashboard')">
+        <i class="fa-solid fa-chart-pie"></i> 주간 통계
+      </button>
+    </div>
+
+    <div id="plannerTab" class="tab-content active">
+      
+      <div class="date-nav-bar">
+        <button class="nav-arrow" onclick="changeDate(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+        <div class="date-display">
+          <div class="date-title" id="dateTitle">2026.08.07 (금)</div>
+          <div class="date-subtitle" id="dateSubtitle">오늘</div>
+        </div>
+        <button class="nav-arrow" onclick="changeDate(1)"><i class="fa-solid fa-chevron-right"></i></button>
+        <div class="btn-action-group">
+          <button class="btn-today" onclick="goToday()">오늘로</button>
+          <button class="btn-reset" onclick="resetCurrentDate()">이 날 초기화</button>
+        </div>
+      </div>
+
+      <div class="clock-wrapper">
+        <canvas id="clockCanvas" width="360" height="360"></canvas>
+      </div>
+
+      <div class="add-form-card">
+        <div class="form-title"><i class="fa-solid fa-plus-circle"></i> 새 일정 추가 (10분 단위)</div>
+        <div class="time-picker-row">
+          <div class="time-select-group">
+            <select id="startHour"></select>시
+            <select id="startMin"></select>분
+          </div>
+          <span style="color:#A0AEC0;">~</span>
+          <div class="time-select-group">
+            <select id="endHour"></select>시
+            <select id="endMin"></select>분
+          </div>
+        </div>
+        <div class="task-input-row">
+          <input type="text" id="taskTitle" placeholder="할 일을 입력하세요 (예: 운동하기)">
+          <button class="btn-submit" onclick="addTask()">추가</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="todo-section-title">
+          <span><i class="fa-solid fa-list-check"></i> 오늘의 할 일</span>
+        </div>
+        <div id="todoList" class="todo-list"></div>
+      </div>
+
+    </div>
+
+    <div id="dashboardTab" class="tab-content">
+      <div class="dashboard-grid">
+        
+        <div class="stat-card-row">
+          <div class="stat-card">
+            <div class="stat-title">주간 평균 달성률</div>
+            <div class="stat-val" id="weeklyRate">0%</div>
+          </div>
+          <div class="stat-card yellow">
+            <div class="stat-title">취약 시간대</div>
+            <div class="stat-val" id="weakestHour">-- 시</div>
+          </div>
+        </div>
+
+        <div class="chart-box">
+          <canvas id="weeklyChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <canvas id="hourlyChart"></canvas>
+        </div>
+
+        <div class="reflection-box">
+          <div class="reflection-title">
+            <i class="fa-solid fa-lightbulb" style="color:#F59E0B;"></i> 주간 피드백 & 반성
+          </div>
+          <div id="reflectionContent" class="reflection-list"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- 부드러운 파스텔 컬러 팰리트 ---
+    const PASTEL_COLORS = [
+      '#D1FAE5', // Soft Mint Green
+      '#FEF3C7', // Soft Cream Yellow
+      '#FFEDD5', // Soft Pastel Orange
+      '#E0F2FE', // Soft Sky Blue
+      '#E9D5FF', // Soft Lavender
+      '#FCE7F3', // Soft Pink
+      '#CCFBF1', // Soft Teal
+      '#FEF9C3'  // Soft Lemon
+    ];
+
+    let currentDateObj = new Date();
+    let appData = JSON.parse(localStorage.getItem('lifePlanData_v2')) || {};
+
+    const canvas = document.getElementById('clockCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const outerRadius = 150;
+    const innerRadius = 55; // 가운데 원 크기 축소
+
+    window.onload = () => {
+      initTimeSelectors();
+      updateDateDisplay();
+      drawClock();
+      renderTodoList();
+    };
+
+    function formatDateKey(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function initTimeSelectors() {
+      const startH = document.getElementById('startHour');
+      const endH = document.getElementById('endHour');
+      const startM = document.getElementById('startMin');
+      const endM = document.getElementById('endMin');
+
+      startH.innerHTML = ''; endH.innerHTML = '';
+      for (let i = 0; i < 24; i++) {
+        const val = String(i).padStart(2, '0');
+        startH.innerHTML += `<option value="${i}">${val}</option>`;
+        endH.innerHTML += `<option value="${i}">${val}</option>`;
+      }
+
+      startM.innerHTML = ''; endM.innerHTML = '';
+      for (let i = 0; i < 60; i += 10) {
+        const val = String(i).padStart(2, '0');
+        startM.innerHTML += `<option value="${i}">${val}</option>`;
+        endM.innerHTML += `<option value="${i}">${val}</option>`;
+      }
+      endH.value = "1";
+    }
+
+    function getDayData(key) {
+      if (!appData[key]) appData[key] = [];
+      return appData[key];
+    }
+
+    function saveData() {
+      localStorage.setItem('lifePlanData_v2', JSON.stringify(appData));
+      drawClock();
+      renderTodoList();
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+      if (tab === 'planner') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('plannerTab').classList.add('active');
+        drawClock();
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('dashboardTab').classList.add('active');
+        renderDashboard();
+      }
+    }
+
+    // --- 날짜 변경 기능 ---
+    function updateDateDisplay() {
+      const key = formatDateKey(currentDateObj);
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      const y = currentDateObj.getFullYear();
+      const m = String(currentDateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(currentDateObj.getDate()).padStart(2, '0');
+      const dayName = days[currentDateObj.getDay()];
+
+      document.getElementById('dateTitle').innerText = `${y}.${m}.${d} (${dayName})`;
+
+      const todayKey = formatDateKey(new Date());
+      const sub = document.getElementById('dateSubtitle');
+      if (key === todayKey) {
+        sub.innerText = '오늘';
+      } else {
+        const diffDays = Math.round((currentDateObj - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+        sub.innerText = diffDays > 0 ? `${diffDays}일 후` : `${Math.abs(diffDays)}일 전`;
+      }
+
+      drawClock();
+      renderTodoList();
+    }
+
+    function changeDate(delta) {
+      currentDateObj.setDate(currentDateObj.getDate() + delta);
+      updateDateDisplay();
+    }
+
+    function goToday() {
+      currentDateObj = new Date();
+      updateDateDisplay();
+    }
+
+    function resetCurrentDate() {
+      const key = formatDateKey(currentDateObj);
+      if (confirm('이 날의 모든 일정을 초기화하시겠습니까?')) {
+        appData[key] = [];
+        saveData();
+      }
+    }
+
+    // --- 24시간 원형 계획표 그리기 ---
+    function drawClock() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const key = formatDateKey(currentDateObj);
+      const tasks = getDayData(key);
+
+      // 1. 기본 연한 녹색 바탕 도넛 링
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, innerRadius, Math.PI * 2, 0, true);
+      ctx.fillStyle = '#EAF4E8';
+      ctx.fill();
+
+      // 2. 일정별 도넛 조각 그리기
+      tasks.forEach((task, idx) => {
+        const startMins = task.startH * 60 + task.startM;
+        const endMins = task.endH * 60 + task.endM;
+
+        let startAngle = (startMins / 1440) * Math.PI * 2 - Math.PI / 2;
+        let endAngle = (endMins / 1440) * Math.PI * 2 - Math.PI / 2;
+
+        if (endMins <= startMins) endAngle += Math.PI * 2;
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
+        ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+        ctx.closePath();
+
+        ctx.fillStyle = PASTEL_COLORS[idx % PASTEL_COLORS.length];
+        ctx.globalAlpha = task.completed ? 0.45 : 0.95;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+
+        // 일정 이름 레이블
+        const midAngle = (startAngle + endAngle) / 2;
+        const midRadius = (outerRadius + innerRadius) / 2;
+        const textX = centerX + Math.cos(midAngle) * midRadius;
+        const textY = centerY + Math.sin(midAngle) * midRadius;
+
+        const duration = (endMins > startMins ? endMins - startMins : endMins + 1440 - startMins);
+        if (duration >= 20) {
+          ctx.save();
+          ctx.fillStyle = '#2D4A3E';
+          ctx.font = '11px GmarketSansBold';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(task.title, textX, textY);
+          ctx.restore();
+        }
+      });
+
+      // 3. 외곽 시간 숫자
+      ctx.fillStyle = '#5A7365';
+      ctx.font = '11px GmarketSansBold';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      for (let h = 0; h < 24; h += 3) {
+        const angle = (h / 24) * Math.PI * 2 - Math.PI / 2;
+        const numX = centerX + Math.cos(angle) * (outerRadius + 15);
+        const numY = centerY + Math.sin(angle) * (outerRadius + 15);
+        ctx.fillText(`${h}시`, numX, numY);
+      }
+
+      // 4. 중앙 완료율 원
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, innerRadius - 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = 'rgba(0,0,0,0.04)';
+      ctx.shadowBlur = 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.completed).length;
+      const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      ctx.fillStyle = '#3B7A57';
+      ctx.font = 'bold 18px GmarketSansBold';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${rate}%`, centerX, centerY - 5);
+
+      ctx.fillStyle = '#7F8C8D';
+      ctx.font = '9px GmarketSansBold';
+      ctx.fillText('완료율', centerX, centerY + 11);
+    }
+
+    // --- 일정 등록 및 리스트 관리 ---
+    function addTask() {
+      const title = document.getElementById('taskTitle').value.trim();
+      const startH = parseInt(document.getElementById('startHour').value);
+      const startM = parseInt(document.getElementById('startMin').value);
+      const endH = parseInt(document.getElementById('endHour').value);
+      const endM = parseInt(document.getElementById('endMin').value);
+
+      if (!title) {
+        alert('할 일을 입력해 주세요!');
+        return;
+      }
+
+      const startTotal = startH * 60 + startM;
+      const endTotal = endH * 60 + endM;
+
+      if (startTotal >= endTotal) {
+        alert('종료 시간은 시작 시간보다 나중이어야 합니다.');
+        return;
+      }
+
+      const key = formatDateKey(currentDateObj);
+      const dayTasks = getDayData(key);
+
+      dayTasks.push({
+        id: Date.now(),
+        title: title,
+        startH: startH,
+        startM: startM,
+        endH: endH,
+        endM: endM,
+        completed: false
+      });
+
+      document.getElementById('taskTitle').value = '';
+      saveData();
+    }
+
+    function toggleTask(id) {
+      const key = formatDateKey(currentDateObj);
+      const dayTasks = getDayData(key);
+      const task = dayTasks.find(t => t.id === id);
+      if (task) {
+        task.completed = !task.completed;
+        saveData();
+      }
+    }
+
+    function deleteTask(id) {
+      const key = formatDateKey(currentDateObj);
+      appData[key] = getDayData(key).filter(t => t.id !== id);
+      saveData();
+    }
+
+    function renderTodoList() {
+      const container = document.getElementById('todoList');
+      const key = formatDateKey(currentDateObj);
+      const dayTasks = getDayData(key);
+
+      container.innerHTML = '';
+
+      if (dayTasks.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:#A0AEC0; padding:18px; font-size:0.85rem;">등록된 일정이 없습니다. 일정을 추가해 보세요!</div>`;
+        return;
+      }
+
+      dayTasks.sort((a,b) => (a.startH*60+a.startM) - (b.startH*60+b.startM)).forEach(task => {
+        const item = document.createElement('div');
+        item.className = 'todo-item';
+
+        const sH = String(task.startH).padStart(2, '0');
+        const sM = String(task.startM).padStart(2, '0');
+        const eH = String(task.endH).padStart(2, '0');
+        const eM = String(task.endM).padStart(2, '0');
+
+        item.innerHTML = `
+          <div class="todo-left">
+            <input type="checkbox" class="todo-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+            <span class="todo-badge">${sH}:${sM} ~ ${eH}:${eM}</span>
+            <span class="todo-text ${task.completed ? 'completed' : ''}">${task.title}</span>
+          </div>
+          <button class="btn-icon-delete" onclick="deleteTask(${task.id})"><i class="fa-solid fa-trash-can"></i></button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // --- 주간 통계 및 대시보드 ---
+    let weeklyChartInstance = null;
+    let hourlyChartInstance = null;
+
+    function renderDashboard() {
+      const last7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        last7Days.push(formatDateKey(d));
+      }
+
+      let totalCount = 0;
+      let completedCount = 0;
+      let rates = [];
+      let hourlyMissed = new Array(24).fill(0);
+      let missedTitles = [];
+
+      last7Days.forEach(key => {
+        const tasks = appData[key] || [];
+        const dayTot = tasks.length;
+        const dayDone = tasks.filter(t => t.completed).length;
+
+        totalCount += dayTot;
+        completedCount += dayDone;
+        rates.push(dayTot > 0 ? Math.round((dayDone / dayTot) * 100) : 0);
+
+        tasks.forEach(t => {
+          if (!t.completed) {
+            missedTitles.push(t.title);
+            for (let h = t.startH; h <= t.endH; h++) {
+              if (h < 24) hourlyMissed[h]++;
+            }
+          }
+        });
+      });
+
+      const avgRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+      document.getElementById('weeklyRate').innerText = `${avgRate}%`;
+
+      const maxMissed = Math.max(...hourlyMissed);
+      const worstH = hourlyMissed.indexOf(maxMissed);
+      document.getElementById('weakestHour').innerText = maxMissed > 0 ? `${worstH}시` : '없음';
+
+      // 1. 주간 추이 차트
+      const ctx1 = document.getElementById('weeklyChart').getContext('2d');
+      if (weeklyChartInstance) weeklyChartInstance.destroy();
+      weeklyChartInstance = new Chart(ctx1, {
+        type: 'line',
+        data: {
+          labels: last7Days.map(k => k.slice(5).replace('-', '/')),
+          datasets: [{
+            label: '일별 달성률(%)',
+            data: rates,
+            borderColor: '#3B7A57',
+            backgroundColor: 'rgba(59, 122, 87, 0.15)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { min: 0, max: 100 } }
+        }
+      });
+
+      // 2. 시간대별 실패 차트
+      const ctx2 = document.getElementById('hourlyChart').getContext('2d');
+      if (hourlyChartInstance) hourlyChartInstance.destroy();
+      hourlyChartInstance = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: Array.from({length: 24}, (_, i) => `${i}시`),
+          datasets: [{
+            label: '놓친 일정 횟수',
+            data: hourlyMissed,
+            backgroundColor: '#F4D03F'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+
+      // 3. 리포트 작성
+      const refBox = document.getElementById('reflectionContent');
+      refBox.innerHTML = '';
+
+      let textList = [];
+      if (avgRate >= 80) {
+        textList.push(`🎉 <strong>훌륭합니다!</strong> 이번 주 평균 달성률이 ${avgRate}%로 매우 높습니다.`);
+      } else if (avgRate >= 50) {
+        textList.push(`👍 <strong>좋은 흐름입니다.</strong> 달성률 ${avgRate}%입니다. 조금만 더 다듬어 볼까요?`);
+      } else {
+        textList.push(`💪 달성률 ${avgRate}%입니다. 무리한 계획보다는 작은 성공부터 쌓아봅시다.`);
+      }
+
+      if (maxMissed > 0) {
+        textList.push(`<span class="badge-warn">주의</span> <strong>${worstH}시</strong> 전후에 미달성 일정이 많았습니다. 피로도가 높은 시간대인지 체크해 보세요.`);
+      }
+
+      if (missedTitles.length > 0) {
+        const unique = [...new Set(missedTitles)].slice(0, 3);
+        textList.push(`📌 자주 지키지 못한 일정: <strong>${unique.join(', ')}</strong>`);
+      }
+
+      textList.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'reflection-item';
+        item.innerHTML = t;
+        refBox.appendChild(item);
+      });
+    }
+  </script>
+</body>
+</html>
